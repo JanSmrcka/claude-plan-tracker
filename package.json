@@ -1,6 +1,6 @@
 {
   "name": "claude-plan-tracker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI tool to persist Claude Code plans and track commits across git branches",
   "type": "module",
   "main": "./dist/index.js",
