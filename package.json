@@ -1,0 +1,45 @@
+{
+  "name": "claude-plan-tracker",
+  "version": "0.1.0",
+  "description": "CLI tool to persist Claude Code plans and track commits across git branches",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "claude-plan-tracker": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "node --test --experimental-strip-types src/**/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "developer-tools",
+    "git",
+    "planning"
+  ],
+  "author": "Jan Smrcka",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JanSmrcka/claude-plan-tracker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JanSmrcka/claude-plan-tracker/issues"
+  },
+  "homepage": "https://github.com/JanSmrcka/claude-plan-tracker#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
