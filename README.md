@@ -96,12 +96,32 @@ commits:
 ## Roadmap
 
 - [x] Project setup and documentation
-- [ ] Basic plan persistence (SessionEnd hook)
-- [ ] Commit tracking (PostToolUse hook)
-- [ ] Branch-aware context loading (SessionStart hook)
-- [ ] CLI commands (init, status, list, sync)
+- [x] Basic plan persistence (SessionEnd hook)
+- [x] Commit tracking (PostToolUse hook)
+- [x] Branch-aware context loading (SessionStart hook)
+- [x] CLI commands (init, status, list, sync)
 - [ ] Plan diff viewer
 - [ ] PR description generation from plans
+
+## Development
+
+```bash
+# Clone the repo
+git clone https://github.com/JanSmrcka/claude-plan-tracker.git
+cd claude-plan-tracker
+
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Run locally
+node dist/index.js --help
+
+# Or use tsx for development
+npm run dev -- --help
+```
 
 ## Requirements
 
