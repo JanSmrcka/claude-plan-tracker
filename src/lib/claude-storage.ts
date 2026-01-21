@@ -27,6 +27,57 @@ export function getPlansPath(): string {
 }
 
 /**
+ * JSONL entry structure (partial - only fields we care about)
+ */
+interface JsonlEntry {
+  slug?: string;
+  gitBranch?: string;
+  sessionId?: string;
+  cwd?: string;
+  timestamp?: string;
+  type?: string;
+}
+
+/**
+ * Extract session info from a JSONL file for a specific branch
+ * Reads the file and finds entries with slug matching the target branch
+ */
+async function extractSessionFromJsonl(
+  filePath: string,
+  targetBranch?: string
+): Promise<ClaudeSession | null> {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    const lines = content.split('\n').filter(line => line.trim());
+
+    // Find entry with slug and gitBranch (optionally matching target branch)
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as JsonlEntry;
+        if (entry.slug && entry.gitBranch) {
+          // If targetBranch specified, only match that branch
+          if (targetBranch && entry.gitBranch !== targetBranch) {
+            continue;
+          }
+          return {
+            slug: entry.slug,
+            gitBranch: entry.gitBranch,
+            sessionId: entry.sessionId || '',
+            cwd: entry.cwd || '',
+            timestamp: entry.timestamp || new Date().toISOString(),
+          };
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+  } catch {
+    // File read error
+  }
+  return null;
+}
+
+/**
  * Find all sessions for a specific branch
  */
 export async function findSessionsForBranch(
@@ -38,18 +89,13 @@ export async function findSessionsForBranch(
 
   try {
     const files = await fs.readdir(sessionsPath);
-    const jsonFiles = files.filter(f => f.endsWith('.json') && !f.startsWith('agent-'));
+    // Look for .jsonl files (transcript files)
+    const jsonlFiles = files.filter((f: string) => f.endsWith('.jsonl'));
 
-    for (const file of jsonFiles) {
-      try {
-        const content = await fs.readFile(path.join(sessionsPath, file), 'utf-8');
-        const data = JSON.parse(content) as Partial<ClaudeSession>;
-
-        if (data.gitBranch === branch && data.slug) {
-          sessions.push(data as ClaudeSession);
-        }
-      } catch {
-        // Skip invalid files
+    for (const file of jsonlFiles) {
+      const session = await extractSessionFromJsonl(path.join(sessionsPath, file), branch);
+      if (session) {
+        sessions.push(session);
       }
     }
   } catch {
@@ -94,18 +140,12 @@ export async function getAllProjectSessions(cwd: string): Promise<ClaudeSession[
 
   try {
     const files = await fs.readdir(sessionsPath);
-    const jsonFiles = files.filter(f => f.endsWith('.json') && !f.startsWith('agent-'));
+    const jsonlFiles = files.filter((f: string) => f.endsWith('.jsonl'));
 
-    for (const file of jsonFiles) {
-      try {
-        const content = await fs.readFile(path.join(sessionsPath, file), 'utf-8');
-        const data = JSON.parse(content) as Partial<ClaudeSession>;
-
-        if (data.slug && data.gitBranch) {
-          sessions.push(data as ClaudeSession);
-        }
-      } catch {
-        // Skip invalid files
+    for (const file of jsonlFiles) {
+      const session = await extractSessionFromJsonl(path.join(sessionsPath, file));
+      if (session) {
+        sessions.push(session);
       }
     }
   } catch {

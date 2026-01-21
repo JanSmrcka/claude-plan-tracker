@@ -1,12 +1,53 @@
-# Claude Plan Tracker - Comprehensive Implementation Plan
+---
+branch: feature/implementation
+source: unified-painting-cat.md
+last_updated: 2026-01-21T22:07:43.957Z
+commits:
+---
 
-## Executive Summary
+# Bug Fix: Claude Storage Reader
 
-Build a zero-dependency TypeScript CLI tool that integrates with Claude Code via hooks to automatically persist plans, track commits, and provide session continuity across git branches.
+## Problem
+
+SessionEnd hook doesn't save plans because `claude-storage.ts` looks for `.json` files that don't exist.
+
+## Root Cause
+
+Claude stores session data in `.jsonl` (JSON Lines) files, not separate `.json` files:
+- Each line in `.jsonl` contains message data with `slug` and `gitBranch` fields
+- No separate `{uuid}.json` metadata files exist
+
+## Fix Required
+
+**File:** `src/lib/claude-storage.ts`
+
+### Current (broken):
+```typescript
+const jsonFiles = files.filter(f => f.endsWith('.json') && !f.startsWith('agent-'));
+```
+
+### Fixed:
+```typescript
+const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
+// Read first few lines to find slug and gitBranch
+```
+
+## Implementation
+
+1. Change `findSessionsForBranch()` to read `.jsonl` files
+2. Parse JSONL line by line (each line is valid JSON)
+3. Find entries with `slug` and `gitBranch` fields
+4. Extract the most recent slug for the branch
+
+## Test
+
+```bash
+echo '{"session_id":"test","cwd":"/path","hook_event_name":"SessionEnd","reason":"clear"}' | node dist/index.js hook session-end
+```
 
 ---
 
-## README.md Content (First Deliverable)
+# Original Implementation Plan (Reference)
 
 ```markdown
 # Claude Plan Tracker
@@ -18,7 +59,6 @@ Claude Plan Tracker is a CLI tool that integrates with [Claude Code](https://cla
 ## The Problem
 
 When working with Claude Code on complex features:
-
 - Plans are stored in `~/.claude/plans/` with random names like `jazzy-booping-bentley.md`
 - No connection between plans and your git branches
 - After context overflow or new session, you lose continuity
@@ -34,35 +74,34 @@ Claude Plan Tracker hooks into Claude Code to:
 4. **Branch-aware** - Each git branch has its own plan history
 
 ## How It Works
+
 ```
-
 ┌─────────────────────────────────────────────────────────────────┐
-│ Claude Code Session │
+│                        Claude Code Session                       │
 ├─────────────────────────────────────────────────────────────────┤
-│ │
-│ SessionStart Hook │
-│ ┌──────────────────────────────────────────────────────────┐ │
-│ │ 1. Detect current git branch │ │
-│ │ 2. Find previous plan for this branch │ │
-│ │ 3. Inject plan + commit history as context │ │
-│ └──────────────────────────────────────────────────────────┘ │
-│ ↓ │
-│ You work with Claude... │
-│ ↓ │
-│ PostToolUse Hook (on git commit) │
-│ ┌──────────────────────────────────────────────────────────┐ │
-│ │ Track commit hash → associate with current plan │ │
-│ └──────────────────────────────────────────────────────────┘ │
-│ ↓ │
-│ SessionEnd Hook │
-│ ┌──────────────────────────────────────────────────────────┐ │
-│ │ 1. Copy plan to .claude/plans/{branch}.md │ │
-│ │ 2. Add metadata: source, timestamp, commits │ │
-│ └──────────────────────────────────────────────────────────┘ │
-│ │
+│                                                                  │
+│  SessionStart Hook                                               │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ 1. Detect current git branch                              │   │
+│  │ 2. Find previous plan for this branch                     │   │
+│  │ 3. Inject plan + commit history as context                │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              ↓                                   │
+│  You work with Claude...                                         │
+│                              ↓                                   │
+│  PostToolUse Hook (on git commit)                                │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ Track commit hash → associate with current plan           │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              ↓                                   │
+│  SessionEnd Hook                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ 1. Copy plan to .claude/plans/{branch}.md                 │   │
+│  │ 2. Add metadata: source, timestamp, commits               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
-
-````
+```
 
 ## Quick Start
 
@@ -76,16 +115,16 @@ claude-plan-tracker init
 
 # That's it! Start Claude Code as usual
 claude
-````
+```
 
 ## Commands
 
-| Command                      | Description                            |
-| ---------------------------- | -------------------------------------- |
-| `claude-plan-tracker init`   | Setup hooks in `.claude/settings.json` |
-| `claude-plan-tracker status` | Show plan status for current branch    |
-| `claude-plan-tracker list`   | List all tracked branches and plans    |
-| `claude-plan-tracker sync`   | Manually sync current plan to repo     |
+| Command | Description |
+|---------|-------------|
+| `claude-plan-tracker init` | Setup hooks in `.claude/settings.json` |
+| `claude-plan-tracker status` | Show plan status for current branch |
+| `claude-plan-tracker list` | List all tracked branches and plans |
+| `claude-plan-tracker sync` | Manually sync current plan to repo |
 
 ## What Gets Saved
 
@@ -124,8 +163,7 @@ commits:
 ## License
 
 MIT
-
-````
+```
 
 ---
 
@@ -157,10 +195,9 @@ MIT
     "@types/node": "^20.x"
   }
 }
-````
+```
 
 **tsconfig.json:**
-
 ```json
 {
   "compilerOptions": {
@@ -222,9 +259,9 @@ interface HookInput {
   permission_mode: string;
   hook_event_name: string;
   // SessionStart specific
-  source?: "startup" | "resume" | "clear" | "compact";
+  source?: 'startup' | 'resume' | 'clear' | 'compact';
   // SessionEnd specific
-  reason?: "clear" | "logout" | "prompt_input_exit" | "other";
+  reason?: 'clear' | 'logout' | 'prompt_input_exit' | 'other';
   // Tool-related (PreToolUse, PostToolUse)
   tool_name?: string;
   tool_input?: Record<string, unknown>;
@@ -246,7 +283,7 @@ interface HookOutput {
 
 // Claude's Internal Storage Types
 interface ClaudeSession {
-  slug: string; // Links to ~/.claude/plans/{slug}.md
+  slug: string;           // Links to ~/.claude/plans/{slug}.md
   gitBranch: string;
   sessionId: string;
   cwd: string;
@@ -273,7 +310,6 @@ interface PlanMetadata {
 ### 2.2 Git Utilities (`src/lib/git-utils.ts`)
 
 **Functions to implement:**
-
 - `getCurrentBranch(cwd: string): Promise<string>` - Get current git branch
 - `getRepoRoot(cwd: string): Promise<string>` - Find git repository root
 - `getRecentCommits(cwd: string, count?: number): Promise<string[]>` - Get recent commit hashes
@@ -281,7 +317,6 @@ interface PlanMetadata {
 - `isGitRepo(cwd: string): Promise<boolean>` - Check if directory is in a git repo
 
 **Implementation approach:**
-
 - Use Node.js `child_process.execSync` or `spawn` for git commands
 - Parse git output directly (no dependencies)
 - Handle errors gracefully (non-git directories)
@@ -291,7 +326,6 @@ interface PlanMetadata {
 **Key insight from PLAN.md:** Claude already maintains the mapping between projects, branches, and plans. We just need to read it.
 
 **Functions to implement:**
-
 - `cwdToProjectDir(cwd: string): string` - Convert path to Claude's directory naming
 - `getProjectSessionsPath(cwd: string): string` - Get path to project's sessions
 - `findSessionsForBranch(cwd: string, branch: string): Promise<ClaudeSession[]>` - Find all sessions for a branch
@@ -300,7 +334,6 @@ interface PlanMetadata {
 - `getAllProjectSessions(cwd: string): Promise<ClaudeSession[]>` - Get all sessions for project
 
 **Path mapping:**
-
 ```
 /Users/jansmrcka/git/project → -Users-jansmrcka-git-project
 
@@ -313,7 +346,6 @@ interface PlanMetadata {
 ### 2.4 Plan Store (`src/lib/plan-store.ts`)
 
 **Functions to implement:**
-
 - `getPlanPath(repoRoot: string, branch: string): string` - Get plan file path in repo
 - `savePlan(repoRoot: string, branch: string, content: string, metadata: PlanMetadata): Promise<void>`
 - `loadPlan(repoRoot: string, branch: string): Promise<TrackedPlan | null>`
@@ -321,7 +353,6 @@ interface PlanMetadata {
 - `addCommitToPlan(repoRoot: string, branch: string, commitHash: string): Promise<void>`
 
 **Plan file format in repo:**
-
 ```markdown
 ---
 branch: feature/auth
@@ -336,7 +367,6 @@ commits:
 ```
 
 **Storage location:** `.claude/plans/{sanitized-branch-name}.md`
-
 - Branch name sanitization: `feature/auth` → `feature-auth.md`
 
 ---
@@ -348,7 +378,6 @@ commits:
 **Trigger:** When Claude Code starts a new session or resumes
 
 **Input received:**
-
 ```json
 {
   "session_id": "abc123",
@@ -361,7 +390,6 @@ commits:
 ```
 
 **Logic:**
-
 1. Read hook input from stdin
 2. Get current git branch
 3. Find latest plan for this branch from Claude's storage
@@ -370,7 +398,6 @@ commits:
 6. Return context with plan content + any commit history
 
 **Output:**
-
 ```json
 {
   "hookSpecificOutput": {
@@ -385,7 +412,6 @@ commits:
 **Trigger:** When Claude Code session ends
 
 **Input received:**
-
 ```json
 {
   "session_id": "abc123",
@@ -398,7 +424,6 @@ commits:
 ```
 
 **Logic:**
-
 1. Read hook input from stdin
 2. Get current git branch and repo root
 3. Find the plan slug from current session (read from transcript path or session data)
@@ -407,13 +432,11 @@ commits:
 6. Save plan to repo: `.claude/plans/{branch}.md` with metadata
 
 **Output:**
-
 ```json
 {
   "continue": true
 }
 ```
-
 (SessionEnd doesn't need to return context, just complete successfully)
 
 ### 3.3 PostToolUse Hook (`src/hooks/post-tool-use.ts`)
@@ -423,7 +446,6 @@ commits:
 **Purpose:** Detect git commits made during session
 
 **Input received:**
-
 ```json
 {
   "session_id": "abc123",
@@ -438,7 +460,6 @@ commits:
 ```
 
 **Logic:**
-
 1. Read hook input from stdin
 2. Check if command contains `git commit`
 3. If commit detected:
@@ -447,7 +468,6 @@ commits:
 4. Return minimal output (no context injection needed)
 
 **Commit detection patterns:**
-
 - `git commit`
 - `git commit -m`
 - `git commit -am`
@@ -460,25 +480,24 @@ commits:
 ### 4.1 CLI Entry Point (`src/index.ts`)
 
 **Implementation:**
-
 - Parse command line arguments manually (no dependencies)
 - Route to appropriate command handler
 - Handle `--help` and `--version` flags
 
 ```typescript
-const [, , command, ...args] = process.argv;
+const [,, command, ...args] = process.argv;
 
 switch (command) {
-  case "init":
+  case 'init':
     await initCommand(args);
     break;
-  case "status":
+  case 'status':
     await statusCommand(args);
     break;
-  case "list":
+  case 'list':
     await listCommand(args);
     break;
-  case "sync":
+  case 'sync':
     await syncCommand(args);
     break;
   default:
@@ -491,43 +510,30 @@ switch (command) {
 **Purpose:** Add hooks configuration to `.claude/settings.json`
 
 **Logic:**
-
 1. Find or create `.claude/settings.json` in current directory
 2. Add hooks configuration:
    ```json
    {
      "hooks": {
-       "SessionStart": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "command": "npx claude-plan-tracker hook session-start"
-             }
-           ]
-         }
-       ],
-       "SessionEnd": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "command": "npx claude-plan-tracker hook session-end"
-             }
-           ]
-         }
-       ],
-       "PostToolUse": [
-         {
-           "matcher": "Bash",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "npx claude-plan-tracker hook post-tool-use"
-             }
-           ]
-         }
-       ]
+       "SessionStart": [{
+         "hooks": [{
+           "type": "command",
+           "command": "npx claude-plan-tracker hook session-start"
+         }]
+       }],
+       "SessionEnd": [{
+         "hooks": [{
+           "type": "command",
+           "command": "npx claude-plan-tracker hook session-end"
+         }]
+       }],
+       "PostToolUse": [{
+         "matcher": "Bash",
+         "hooks": [{
+           "type": "command",
+           "command": "npx claude-plan-tracker hook post-tool-use"
+         }]
+       }]
      }
    }
    ```
@@ -541,7 +547,6 @@ switch (command) {
 **Purpose:** Show plan status for current branch
 
 **Logic:**
-
 1. Get current git branch
 2. Load plan from repo (`.claude/plans/{branch}.md`)
 3. Load plan from Claude storage (latest for this branch)
@@ -552,7 +557,6 @@ switch (command) {
    - Commits tracked
 
 **Output:**
-
 ```
 Branch: feature/auth
 Plan Status: Tracked
@@ -574,13 +578,11 @@ Claude Storage:
 **Purpose:** List all tracked branches and their plans
 
 **Logic:**
-
 1. Find all plan files in `.claude/plans/`
 2. Parse metadata from each
 3. Display summary table
 
 **Output:**
-
 ```
 Tracked Plans:
 ┌────────────────────┬─────────────────────────┬─────────────────────────┬─────────┐
@@ -597,14 +599,12 @@ Tracked Plans:
 **Purpose:** Manually sync current plan to repo
 
 **Logic:**
-
 1. Get current git branch
 2. Find latest plan from Claude storage for this branch
 3. Copy plan to repo with metadata
 4. Report changes
 
 **Options:**
-
 - `--all` - Sync all branches with known plans
 - `--force` - Overwrite even if repo version is newer
 
@@ -615,14 +615,12 @@ Tracked Plans:
 ### 5.1 Unit Tests
 
 **Test files to create:**
-
 - `src/lib/__tests__/git-utils.test.ts`
 - `src/lib/__tests__/claude-storage.test.ts`
 - `src/lib/__tests__/plan-store.test.ts`
 - `src/hooks/__tests__/session-start.test.ts`
 
 **Testing approach:**
-
 - Use Node.js built-in `node:test` (no external test framework)
 - Mock file system operations
 - Create temp directories for integration tests
@@ -630,7 +628,6 @@ Tracked Plans:
 ### 5.2 Integration Tests
 
 **Scenarios to test:**
-
 1. Full workflow: init → session start → work → commit → session end
 2. Branch switching: start on branch A, switch to B, verify correct plan loaded
 3. Plan conflict resolution: Claude plan newer vs repo plan newer
@@ -650,7 +647,6 @@ Tracked Plans:
 ### 6.1 README.md
 
 **Sections:**
-
 - Installation (`npm install -g claude-plan-tracker`)
 - Quick Start (init, start using)
 - How It Works (diagram of data flow)
@@ -661,13 +657,11 @@ Tracked Plans:
 ### 6.2 Error Handling
 
 **Graceful degradation:**
-
 - If not in git repo → warn but continue (plans still tracked by cwd)
 - If Claude storage unreadable → skip context injection, don't crash
 - If plan file corrupted → start fresh, log warning
 
 **Error messages:**
-
 - Clear, actionable messages
 - Include relevant file paths
 - Suggest fixes
@@ -677,27 +671,22 @@ Tracked Plans:
 ## Phase 7: Future Enhancements (Post-MVP)
 
 ### 7.1 Plan Diffing
-
 - Show diff between current and previous plan versions
 - Track plan evolution over time
 
 ### 7.2 Commit Message Enhancement
-
 - Optionally inject plan reference into commit messages
 - `[plan:jazzy-booping-bentley] Add login form`
 
 ### 7.3 PR Integration
-
 - Generate PR description from plan
 - Link commits to plan sections
 
 ### 7.4 Team Sharing
-
 - Optional: push plans to remote (separate branch or separate file)
 - Team members can see AI-assisted work context
 
 ### 7.5 Analytics
-
 - Track planning patterns
 - Session duration vs commits correlation
 - Plan completion rates
@@ -707,17 +696,30 @@ Tracked Plans:
 ## Implementation Order
 
 **Week 1: Foundation**
-
 1. Project setup (package.json, tsconfig.json)
 2. Types definition
 3. Git utilities
 4. Claude storage reader
 
-**Week 2: Core Features** 5. Plan store 6. SessionStart hook 7. SessionEnd hook 8. PostToolUse hook
+**Week 2: Core Features**
+5. Plan store
+6. SessionStart hook
+7. SessionEnd hook
+8. PostToolUse hook
 
-**Week 3: CLI & Testing** 9. CLI entry point 10. Init command 11. Status command 12. List command 13. Sync command 14. Unit tests
+**Week 3: CLI & Testing**
+9. CLI entry point
+10. Init command
+11. Status command
+12. List command
+13. Sync command
+14. Unit tests
 
-**Week 4: Polish** 15. Integration tests 16. Error handling improvements 17. Documentation 18. npm publish preparation
+**Week 4: Polish**
+15. Integration tests
+16. Error handling improvements
+17. Documentation
+18. npm publish preparation
 
 ---
 
@@ -726,42 +728,36 @@ Tracked Plans:
 ### How to Test the Implementation
 
 1. **Build and install locally:**
-
    ```bash
    npm run build
    npm link
    ```
 
 2. **Initialize in a test project:**
-
    ```bash
    cd /path/to/test-project
    claude-plan-tracker init
    ```
 
 3. **Verify hooks configuration:**
-
    ```bash
    cat .claude/settings.json
    # Should show hooks configuration
    ```
 
 4. **Start Claude Code session:**
-
    ```bash
    claude
    # Should see plan context if previous plan exists
    ```
 
 5. **Make a commit during session:**
-
    ```bash
    # In Claude: ask to create a file and commit it
    # Commit should be tracked
    ```
 
 6. **End session and verify persistence:**
-
    ```bash
    # Exit Claude Code
    cat .claude/plans/*.md
@@ -778,11 +774,11 @@ Tracked Plans:
 
 ## Critical Files Summary
 
-| File                         | Purpose                                       |
-| ---------------------------- | --------------------------------------------- |
-| `src/lib/types.ts`           | TypeScript interfaces for all data structures |
-| `src/lib/claude-storage.ts`  | Read Claude's internal plan/session data      |
-| `src/lib/plan-store.ts`      | Persist plans to repo                         |
-| `src/hooks/session-start.ts` | Inject previous plan context                  |
-| `src/hooks/session-end.ts`   | Save plan to repo                             |
-| `src/cli/init.ts`            | Setup hooks configuration                     |
+| File | Purpose |
+|------|---------|
+| `src/lib/types.ts` | TypeScript interfaces for all data structures |
+| `src/lib/claude-storage.ts` | Read Claude's internal plan/session data |
+| `src/lib/plan-store.ts` | Persist plans to repo |
+| `src/hooks/session-start.ts` | Inject previous plan context |
+| `src/hooks/session-end.ts` | Save plan to repo |
+| `src/cli/init.ts` | Setup hooks configuration |
