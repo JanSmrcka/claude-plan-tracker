@@ -1,11 +1,12 @@
+import { readFileSync } from 'fs';
 import type { SessionEndInput } from '../lib/types.js';
 import { getCurrentBranch, getRepoRoot } from '../lib/git-utils.js';
 import { findLatestPlanForBranch, loadPlanContent } from '../lib/claude-storage.js';
 import { savePlan, loadPlan } from '../lib/plan-store.js';
 
 export async function sessionEndHook(): Promise<void> {
-  // Read input from stdin
-  const stdin = await readStdin();
+  // Read input from stdin (synchronous for reliability)
+  const stdin = readStdinSync();
   if (!stdin) {
     process.exit(0);
     return;
@@ -58,14 +59,10 @@ export async function sessionEndHook(): Promise<void> {
   process.exit(0);
 }
 
-async function readStdin(): Promise<string> {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.setEncoding('utf-8');
-    process.stdin.on('data', (chunk: string) => { data += chunk; });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', () => resolve(''));
-
-    setTimeout(() => resolve(data), 1000);
-  });
+function readStdinSync(): string {
+  try {
+    return readFileSync(0, 'utf-8');
+  } catch {
+    return '';
+  }
 }

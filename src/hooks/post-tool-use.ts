@@ -1,10 +1,11 @@
+import { readFileSync } from 'fs';
 import type { PostToolUseInput } from '../lib/types.js';
 import { getCurrentBranch, getRepoRoot, getLatestCommit } from '../lib/git-utils.js';
 import { addCommitToPlan } from '../lib/plan-store.js';
 
 export async function postToolUseHook(): Promise<void> {
-  // Read input from stdin
-  const stdin = await readStdin();
+  // Read input from stdin (synchronous for reliability)
+  const stdin = readStdinSync();
   if (!stdin) {
     process.exit(0);
     return;
@@ -63,14 +64,10 @@ function isGitCommit(command: string): boolean {
   return commitPatterns.some(pattern => pattern.test(command));
 }
 
-async function readStdin(): Promise<string> {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.setEncoding('utf-8');
-    process.stdin.on('data', (chunk: string) => { data += chunk; });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', () => resolve(''));
-
-    setTimeout(() => resolve(data), 1000);
-  });
+function readStdinSync(): string {
+  try {
+    return readFileSync(0, 'utf-8');
+  } catch {
+    return '';
+  }
 }

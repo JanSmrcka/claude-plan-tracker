@@ -1,11 +1,12 @@
-import type { SessionStartInput, HookOutput } from '../lib/types.js';
+import { readFileSync } from 'fs';
+import type { SessionStartInput } from '../lib/types.js';
 import { getCurrentBranch, getRepoRoot } from '../lib/git-utils.js';
 import { findLatestPlanForBranch, loadPlanContent } from '../lib/claude-storage.js';
 import { loadPlan } from '../lib/plan-store.js';
 
 export async function sessionStartHook(): Promise<void> {
-  // Read input from stdin
-  const stdin = await readStdin();
+  // Read input from stdin (synchronous for reliability with npx)
+  const stdin = readStdinSync();
   if (!stdin) {
     process.exit(0);
   }
@@ -61,28 +62,20 @@ export async function sessionStartHook(): Promise<void> {
   }
 
   // Output context if we found anything
+  // Use plain text output - Claude Code adds it directly to context
   if (contextParts.length > 0) {
-    const output: HookOutput = {
-      hookSpecificOutput: {
-        hookEventName: 'SessionStart',
-        additionalContext: contextParts.join('\n'),
-      },
-    };
-    console.log(JSON.stringify(output));
+    console.log(contextParts.join('\n'));
   }
 
   process.exit(0);
 }
 
-async function readStdin(): Promise<string> {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.setEncoding('utf-8');
-    process.stdin.on('data', (chunk: string) => { data += chunk; });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', () => resolve(''));
-
-    // Timeout after 1 second
-    setTimeout(() => resolve(data), 1000);
-  });
+function readStdinSync(): string {
+  try {
+    // Use synchronous read from file descriptor 0 (stdin)
+    // This is more reliable than event-based reading for piped data
+    return readFileSync(0, 'utf-8');
+  } catch {
+    return '';
+  }
 }
