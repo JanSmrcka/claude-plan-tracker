@@ -65,6 +65,59 @@ claude-plan-tracker init
 claude
 ```
 
+## Local Installation (from source)
+
+If you want to test locally before the package is published to npm:
+
+### Option 1: npm link
+
+```bash
+# Clone and build
+git clone https://github.com/JanSmrcka/claude-plan-tracker.git
+cd claude-plan-tracker
+npm install
+npm run build
+
+# Link globally
+npm link
+
+# Now use in any project
+cd /path/to/your/project
+claude-plan-tracker init
+```
+
+### Option 2: Direct path in hooks config
+
+Create `.claude/settings.json` in your project with absolute paths:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "node /path/to/claude-plan-tracker/dist/index.js hook session-start"
+      }]
+    }],
+    "SessionEnd": [{
+      "hooks": [{
+        "type": "command",
+        "command": "node /path/to/claude-plan-tracker/dist/index.js hook session-end"
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "node /path/to/claude-plan-tracker/dist/index.js hook post-tool-use"
+      }]
+    }]
+  }
+}
+```
+
+Replace `/path/to/claude-plan-tracker` with the actual path where you cloned the repo.
+
 ## Commands
 
 | Command | Description |
