@@ -150,7 +150,7 @@ commits:
 
 - [x] Project setup and documentation
 - [x] Basic plan persistence (SessionEnd hook)
-- [x] Commit tracking (PostToolUse hook)
+- [ ] Commit tracking (PostToolUse hook)
 - [x] Branch-aware context loading (SessionStart hook)
 - [x] CLI commands (init, status, list, sync)
 - [ ] Plan diff viewer
